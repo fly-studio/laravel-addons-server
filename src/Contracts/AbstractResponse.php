@@ -2,26 +2,25 @@
 
 namespace Addons\Server\Contracts;
 
-use Addons\Func\Contracts\BootTrait;
+use Closure;
+use RuntimeException;
 use Addons\Server\Structs\ServerOptions;
-use Addons\Server\Contracts\AbstractService;
+use Addons\Server\Structs\ConnectBinder;
+use Addons\Func\Contracts\TraitsBootTrait;
+use Addons\Server\Contracts\AbstractSender;
+use Addons\Server\Contracts\AbstractRequest;
 
 abstract class AbstractResponse {
 
-	use BootTrait;
+	use TraitsBootTrait;
 
-	protected $options;
-	protected $service;
-	protected $data;
-	protected $nextAction;
+	protected $binder;
+	protected $sender;
+	protected $content = null;
 
-	public function __construct(ServerOptions $options, ?AbstractService $service, ?string $data)
+	public function __construct($content = null)
 	{
-		$this->options = $options;
-		$this->service = $service;
-		$this->data = $data;
-
-		$this->boot();
+		$this->content = $content;
 	}
 
 	public static function build(...$args)
@@ -29,39 +28,38 @@ abstract class AbstractResponse {
 		return new static(...$args);
 	}
 
-	public static function buildFromRequest(AbstractRequest $request)
+	public function with(ConnectBinder $binder, AbstractSender $sender)
 	{
-		return static::build($request->options(), $request->service(), $request->data());
+		$this->binder = $binder;
+		$this->sender = $sender;
 	}
 
-	public function options()
+	public function options(): ServerOptions
 	{
-		return $this->options;
+		return $this->binder->options();
 	}
 
-	public function server()
+	public function binder(): ConnectBinder
 	{
-		return $this->options->server();
+		return $this->binder;
 	}
 
-	public function data()
+	public function setContent($content)
 	{
-		return $this->data;
-	}
-
-	public function service()
-	{
-		return $this->service;
-	}
-
-	public function nextAction(Closure $callback = null)
-	{
-		if (is_null($callback)) return $this->nextAction;
-
-		$this->nextAction = $callback;
+		$this->content = $content;
 		return $this;
 	}
 
-	abstract public function reply(): ?array;
+	public function getContent()
+	{
+		return $this->content;
+	}
+
+	public function prepare(AbstractRequest $request)
+	{
+		return $this;
+	}
+
+	abstract protected function send();
 
 }
